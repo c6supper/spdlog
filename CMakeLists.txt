@@ -93,9 +93,10 @@ if(WIN32)
     option(SPDLOG_WCHAR_SUPPORT "Support wchar api" OFF)
     option(SPDLOG_WCHAR_FILENAMES "Support wchar filenames" OFF)
 endif()
+
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
     option(SPDLOG_CLOCK_COARSE
-           "Use the much faster (but much less accurate) CLOCK_REALTIME_COARSE instead of the regular clock," OFF)
+        "Use the much faster (but much less accurate) CLOCK_REALTIME_COARSE instead of the regular clock," OFF)
 endif()
 
 option(SPDLOG_PREVENT_CHILD_FD "Prevent from child processes to inherit log file descriptors" OFF)
@@ -118,8 +119,12 @@ if(SPDLOG_TIDY)
     message(STATUS "Enabled clang-tidy")
 endif()
 
-find_package(Threads REQUIRED)
+if(not QNX)
+    find_package(Threads REQUIRED)
+endif()
+
 message(STATUS "Build type: " ${CMAKE_BUILD_TYPE})
+
 # ---------------------------------------------------------------------------------------
 # Static/Shared library (shared not supported in windows yet)
 # ---------------------------------------------------------------------------------------
@@ -134,12 +139,15 @@ if(SPDLOG_BUILD_SHARED OR BUILD_SHARED_LIBS)
         configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/version.rc.in ${CMAKE_CURRENT_BINARY_DIR}/version.rc @ONLY)
         list(APPEND SPDLOG_SRCS ${CMAKE_CURRENT_BINARY_DIR}/version.rc)
     endif()
+
     add_library(spdlog SHARED ${SPDLOG_SRCS} ${SPDLOG_ALL_HEADERS})
     target_compile_definitions(spdlog PUBLIC SPDLOG_SHARED_LIB)
+
     if(MSVC)
-        target_compile_options(spdlog PUBLIC 
+        target_compile_options(spdlog PUBLIC
             $<$<AND:$<CXX_COMPILER_ID:MSVC>,$<NOT:$<COMPILE_LANGUAGE:CUDA>>>:/wd4251 /wd4275>)
     endif()
+
     if(NOT SPDLOG_FMT_EXTERNAL AND NOT SPDLOG_FMT_EXTERNAL_HO)
         target_compile_definitions(spdlog PRIVATE FMT_EXPORT PUBLIC FMT_SHARED)
     endif()
@@ -151,8 +159,12 @@ add_library(spdlog::spdlog ALIAS spdlog)
 
 target_compile_definitions(spdlog PUBLIC SPDLOG_COMPILED_LIB)
 target_include_directories(spdlog PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>"
-                                         "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
-target_link_libraries(spdlog PUBLIC Threads::Threads)
+    "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
+
+if(not QNX)
+    target_link_libraries(spdlog PUBLIC Threads::Threads)
+endif()
+
 spdlog_enable_warnings(spdlog)
 
 set_target_properties(spdlog PROPERTIES VERSION ${SPDLOG_VERSION} SOVERSION ${SPDLOG_VERSION_MAJOR})
@@ -170,7 +182,7 @@ add_library(spdlog_header_only INTERFACE)
 add_library(spdlog::spdlog_header_only ALIAS spdlog_header_only)
 
 target_include_directories(spdlog_header_only INTERFACE "$<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>"
-                                                        "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
+    "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
 target_link_libraries(spdlog_header_only INTERFACE Threads::Threads)
 
 # ---------------------------------------------------------------------------------------
@@ -180,6 +192,7 @@ if(SPDLOG_FMT_EXTERNAL OR SPDLOG_FMT_EXTERNAL_HO)
     if(NOT TARGET fmt::fmt)
         find_package(fmt CONFIG REQUIRED)
     endif()
+
     target_compile_definitions(spdlog PUBLIC SPDLOG_FMT_EXTERNAL)
     target_compile_definitions(spdlog_header_only INTERFACE SPDLOG_FMT_EXTERNAL)
 
@@ -198,15 +211,16 @@ endif()
 # ---------------------------------------------------------------------------------------
 # Add required libraries for Android CMake build
 # ---------------------------------------------------------------------------------------
-if (ANDROID)
+if(ANDROID)
     target_link_libraries(spdlog PUBLIC log)
     target_link_libraries(spdlog_header_only INTERFACE log)
-endif ()
+endif()
 
 # ---------------------------------------------------------------------------------------
 # Misc definitions according to tweak options
 # ---------------------------------------------------------------------------------------
 set(SPDLOG_WCHAR_TO_UTF8_SUPPORT ${SPDLOG_WCHAR_SUPPORT})
+
 foreach(
     SPDLOG_OPTION
     SPDLOG_WCHAR_TO_UTF8_SUPPORT
@@ -235,6 +249,7 @@ if(SPDLOG_BUILD_EXAMPLE OR SPDLOG_BUILD_EXAMPLE_HO OR SPDLOG_BUILD_ALL)
     message(STATUS "Generating example(s)")
     add_subdirectory(example)
     spdlog_enable_warnings(example)
+
     if(SPDLOG_BUILD_EXAMPLE_HO)
         spdlog_enable_warnings(example_header_only)
     endif()
@@ -277,7 +292,7 @@ if(SPDLOG_INSTALL)
 
     if(NOT SPDLOG_FMT_EXTERNAL AND NOT SPDLOG_FMT_EXTERNAL_HO)
         install(DIRECTORY include/${PROJECT_NAME}/fmt/bundled/
-                DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}/fmt/bundled/")
+            DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${PROJECT_NAME}/fmt/bundled/")
     endif()
 
     # ---------------------------------------------------------------------------------------
@@ -305,4 +320,3 @@ if(SPDLOG_INSTALL)
     # ---------------------------------------------------------------------------------------
     include(cmake/spdlogCPack.cmake)
 endif()
-
